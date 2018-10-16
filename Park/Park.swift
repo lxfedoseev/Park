@@ -30,6 +30,9 @@
 
 import UIKit
 import CoreLocation
+import MobileCoreServices
+
+public let parkTypeId = "com.razeware.park"
 
 enum EncodingError: Error {
   case invalidData
@@ -89,3 +92,55 @@ open class Park: NSObject, NSCoding {
   }
 }
 
+extension Park: NSItemProviderWriting {
+    // 1
+    public static var writableTypeIdentifiersForItemProvider:
+        [String] {
+        return [parkTypeId,
+                kUTTypePNG as String,
+                kUTTypePlainText as String]
+    }
+    
+    // 2
+    public func loadData(
+        withTypeIdentifier typeIdentifier: String,
+        forItemProviderCompletionHandler completionHandler:
+        @escaping (Data?, Error?) -> Void) -> Progress? {
+        // 3
+        if typeIdentifier == kUTTypePNG as String {
+            if let imageData = UIImagePNGRepresentation(image) {
+                completionHandler(imageData, nil)
+            } else {
+                completionHandler(nil, nil)
+            }
+        } else if typeIdentifier == kUTTypePlainText as String {
+            completionHandler(name.data(using: .utf8), nil)
+        } else if typeIdentifier == parkTypeId {
+            let data =
+                NSKeyedArchiver.archivedData(withRootObject: self)
+            completionHandler(data, nil)
+        }
+        return nil
+    }
+    
+}
+
+extension Park: NSItemProviderReading {
+    public static var readableTypeIdentifiersForItemProvider:
+        [String] {
+        return [parkTypeId]
+    }
+    
+    public static func object(withItemProviderData data: Data,
+                              typeIdentifier: String) throws -> Self {
+        switch typeIdentifier {
+        case parkTypeId:
+            guard let park = NSKeyedUnarchiver
+                .unarchiveObject(with: data) as? Park
+                else { throw EncodingError.invalidData }
+            return self.init(park)
+        default:
+            throw EncodingError.invalidData
+        }
+    }
+}
